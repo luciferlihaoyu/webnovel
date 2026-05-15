@@ -20,7 +20,7 @@ export const useAiStore = create<AiState>((set, get) => ({
 
   loadConfigs: async () => {
     const configs = await db.aiConfigs.orderBy('isDefault').reverse().toArray();
-    const active = configs.find(c => c.isDefault === 1) || configs[0] || null;
+    const active = configs.find((c: AiConfig) => c.isDefault === 1) || configs[0] || null;
     set({ configs, activeConfig: active, loaded: true });
   },
 

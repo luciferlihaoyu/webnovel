@@ -29,7 +29,7 @@ export default function App() {
       case 'bookshelf': return <BookshelfPage onShowRightSidebar={showRightSidebarPages.includes(currentPage)} />
       case 'editor': return <EditorPage onShowRightSidebar={true} />
       case 'ai': return <AIPage />
-      case 'characters': return <CharactersPage onShowRightSidebar={true} />
+      case 'characters': return <CharactersPage />
       case 'stats': return <StatsPage />
       case 'settings': return <SettingsPage />
       default: return <BookshelfPage onShowRightSidebar={true} />
