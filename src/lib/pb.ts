@@ -1,5 +1,6 @@
 import PocketBase from 'pocketbase'
 
-export const pb = new PocketBase('http://163.7.5.133:8090')
+// Same origin — PocketBase serves both API and frontend
+export const pb = new PocketBase(window.location.origin)
 
 pb.autoCancellation(false)
