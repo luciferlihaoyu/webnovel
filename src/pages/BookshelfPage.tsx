@@ -157,11 +157,39 @@ export default function BookshelfPage({ onShowRightSidebar = true }: BookshelfPa
     return d.toLocaleDateString('zh-CN')
   }
 
-  const weekDays = ['一', '二', '三', '四', '五', '六', '日']
-  const weeklyData = weekDays.map((day, i) => ({
-    day: `周${day}`,
-    words: [1200, 3400, 800, 5200, 2100, 4500, 2800][i],
-  }))
+  const [weeklyData, setWeeklyData] = useState<{ day: string; words: number }[]>(
+    ['周一','周二','周三','周四','周五','周六','周日'].map(d => ({ day: d, words: 0 }))
+  )
+  const [todayWords, setTodayWords] = useState(0)
+  const [dailyTarget, setDailyTarget] = useState(5000)
+
+  useEffect(() => {
+    // Compute real weekly data from all chapters
+    pb.collection('chapters').getFullList<any>().then(chapters => {
+      const now = new Date()
+      const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1
+      const weekStart = new Date(now)
+      weekStart.setDate(now.getDate() - dayOfWeek)
+      weekStart.setHours(0, 0, 0, 0)
+
+      const week = [0, 0, 0, 0, 0, 0, 0]
+      let today = 0
+      const todayStart = new Date(now)
+      todayStart.setHours(0, 0, 0, 0)
+
+      chapters.forEach((c: any) => {
+        if (!c.updated || !c.wordCount) return
+        const d = new Date(c.updated)
+        const diff = Math.floor((d.getTime() - weekStart.getTime()) / 86400000)
+        if (diff >= 0 && diff < 7) week[diff] += c.wordCount
+        if (d.getTime() >= todayStart.getTime()) today += c.wordCount
+      })
+
+      const days = ['周一','周二','周三','周四','周五','周六','周日']
+      setWeeklyData(days.map((d, i) => ({ day: d, words: week[i] })))
+      setTodayWords(today)
+    }).catch(() => {})
+  }, [works])
 
   const filteredWorks = searchQuery
     ? works.filter(w => w.title.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -318,7 +346,7 @@ export default function BookshelfPage({ onShowRightSidebar = true }: BookshelfPa
               </button>
             </div>
             <div className="bg-white border border-gray-200 rounded-xl p-5">
-              <WeeklyChart data={weeklyData} trend="↑32%" />
+              <WeeklyChart data={weeklyData} />
             </div>
           </section>
 
