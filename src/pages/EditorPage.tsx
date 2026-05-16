@@ -1,14 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { pb } from '../lib/pb'
+import { aiChat, ANTI_AI_RULES } from '../lib/ai'
 import { useAppStore } from '../store/useAppStore'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
+import { Textarea } from '../components/ui/textarea'
 import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs'
 import RightSidebar from '../components/RightSidebar'
 import {
   Plus, Save, ChevronRight, ChevronDown, ArrowLeft,
-  Undo2, Redo2, Wifi, WifiOff, User
+  Undo2, Redo2, Wifi, WifiOff, User,
+  Sparkles, ShieldCheck, UserCircle, Loader2, Copy
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 
@@ -53,6 +56,13 @@ export default function EditorPage({ onShowRightSidebar = true }: EditorPageProp
   const [editorTab, setEditorTab] = useState('chapter')
   const editorRef = useRef<HTMLDivElement>(null)
   const [isOnline, setIsOnline] = useState(true)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [showReviewDialog, setShowReviewDialog] = useState(false)
+  const [reviewResult, setReviewResult] = useState('')
+  const [showNameDialog, setShowNameDialog] = useState(false)
+  const [nameDesc, setNameDesc] = useState('')
+  const [nameResult, setNameResult] = useState('')
+  const [nameLoading, setNameLoading] = useState(false)
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true)
@@ -191,6 +201,62 @@ export default function EditorPage({ onShowRightSidebar = true }: EditorPageProp
     if (editorRef.current) {
       setChapterContent(editorRef.current.innerText || '')
     }
+  }
+
+  const handleExpand = async () => {
+    const content = chapterContent.trim()
+    if (!content) { alert('请先写入一些内容'); return }
+    setAiLoading(true)
+    try {
+      const prompt = `${ANTI_AI_RULES}\n请将以下内容进行扩展和润色，保持原文风格，扩充细节和情节：\n${content}`
+      const result = await aiChat(prompt)
+      setChapterContent(result)
+      if (editorRef.current) editorRef.current.innerText = result
+    } catch (err: any) {
+      alert(err.message || 'AI 扩写失败')
+    }
+    setAiLoading(false)
+  }
+
+  const handleReview = async () => {
+    const content = chapterContent.trim()
+    if (!content) { alert('请先写入一些内容'); return }
+    setAiLoading(true)
+    setReviewResult('')
+    setShowReviewDialog(true)
+    try {
+      const prompt = `请对以下小说章节进行专业审核，从以下6个维度评分（1-10分）并给出修改建议：
+1. 人设一致性
+2. 逻辑连贯性  
+3. AI痕迹（是否像AI写的）
+4. 水字数程度
+5. 钩子/悬念设置
+6. 断章技巧
+
+章节标题：${chapterTitle}
+章节内容：${content}
+
+请用Markdown表格格式输出评分和建议。`
+      const result = await aiChat(prompt)
+      setReviewResult(result)
+    } catch (err: any) {
+      setReviewResult(`❌ ${err.message || '审核失败'}`)
+    }
+    setAiLoading(false)
+  }
+
+  const handleGenerateNames = async () => {
+    if (!nameDesc.trim()) return
+    setNameLoading(true)
+    setNameResult('')
+    try {
+      const prompt = `${ANTI_AI_RULES}\n请根据以下描述，生成5个适合小说角色的名字（中文），每个名字附带简短寓意：\n描述：${nameDesc}\n返回格式：每个名字一行，格式为"名字 — 寓意"`
+      const result = await aiChat(prompt)
+      setNameResult(result)
+    } catch (err: any) {
+      setNameResult(`❌ ${err.message || '生成失败'}`)
+    }
+    setNameLoading(false)
   }
 
   const handleBack = () => setPage('bookshelf')
@@ -361,6 +427,23 @@ export default function EditorPage({ onShowRightSidebar = true }: EditorPageProp
               </Button>
             </div>
 
+            {/* AI Action Bar */}
+            <div className="flex items-center gap-2 px-4 py-1.5 border-b border-gray-200 bg-gray-50 flex-shrink-0">
+              <span className="text-xs text-gray-500 mr-1">AI 工具：</span>
+              <Button variant="outline" size="sm" onClick={handleExpand} disabled={aiLoading}>
+                {aiLoading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1" />}
+                扩写
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleReview} disabled={aiLoading}>
+                {aiLoading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5 mr-1" />}
+                审核
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setShowNameDialog(true)}>
+                <UserCircle className="w-3.5 h-3.5 mr-1" />
+                取名
+              </Button>
+            </div>
+
             {/* Writing Area */}
             <div className="flex-1 overflow-auto">
               <div
@@ -481,6 +564,62 @@ export default function EditorPage({ onShowRightSidebar = true }: EditorPageProp
         <DialogFooter>
           <Button variant="outline" onClick={() => setShowNewVolume(false)}>取消</Button>
           <Button onClick={handleCreateVolume} disabled={!newVolumeTitle.trim()}>创建</Button>
+        </DialogFooter>
+      </Dialog>
+
+      {/* Review Dialog */}
+      <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
+        <DialogHeader><DialogTitle>AI 审核结果</DialogTitle></DialogHeader>
+        <div className="py-4 max-h-[60vh] overflow-auto">
+          {aiLoading && !reviewResult ? (
+            <div className="flex items-center justify-center py-8 text-gray-500">
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              AI 正在审核中...
+            </div>
+          ) : (
+            <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{reviewResult}</div>
+          )}
+        </div>
+        <DialogFooter>
+          {reviewResult && (
+            <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(reviewResult)}>
+              <Copy className="w-3.5 h-3.5 mr-1" />复制
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => setShowReviewDialog(false)}>关闭</Button>
+        </DialogFooter>
+      </Dialog>
+
+      {/* Name Generation Dialog */}
+      <Dialog open={showNameDialog} onOpenChange={setShowNameDialog}>
+        <DialogHeader><DialogTitle>取名助手</DialogTitle></DialogHeader>
+        <div className="py-4 space-y-4">
+          <div>
+            <label className="block text-sm text-gray-700 mb-1.5">角色描述</label>
+            <Textarea
+              value={nameDesc}
+              onChange={(e) => setNameDesc(e.target.value)}
+              placeholder="例如：古风仙侠，男性主角，性格冷酷"
+              rows={3}
+              className="resize-none"
+            />
+          </div>
+          <Button className="w-full" onClick={handleGenerateNames} disabled={nameLoading || !nameDesc.trim()}>
+            {nameLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+            {nameLoading ? '生成中...' : '生成名字'}
+          </Button>
+          {nameResult && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-gray-500 font-medium">生成结果</span>
+                <button onClick={() => navigator.clipboard.writeText(nameResult)} className="text-xs text-primary-500 hover:text-primary-600">复制</button>
+              </div>
+              <div className="text-sm text-gray-700 whitespace-pre-wrap">{nameResult}</div>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { setShowNameDialog(false); setNameResult(''); setNameDesc('') }}>关闭</Button>
         </DialogFooter>
       </Dialog>
     </div>

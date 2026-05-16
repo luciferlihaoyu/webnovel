@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { pb } from '../lib/pb'
+import { aiChat } from '../lib/ai'
 import { useAppStore } from '../store/useAppStore'
 import { Button } from '../components/ui/button'
 import { Textarea } from '../components/ui/textarea'
-import { Sparkles, Copy, Globe } from 'lucide-react'
+import { Sparkles, Copy, Globe, Loader2 } from 'lucide-react'
 
 export default function WorldPage() {
-  const { currentWorkId } = useAppStore()
+  const { currentWorkId, currentWorkTitle } = useAppStore()
   const [nodes, setNodes] = useState<any[]>([])
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
@@ -14,6 +15,8 @@ export default function WorldPage() {
   const [parentId, setParentId] = useState<string | null>(null)
   const [newName, setNewName] = useState('')
   const [genLoading, setGenLoading] = useState(false)
+  const [showCategoryDialog, setShowCategoryDialog] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState('')
 
   const fetchNodes = async () => {
     if (!currentWorkId) return
@@ -71,51 +74,48 @@ export default function WorldPage() {
     fetchNodes()
   }
 
+  const categories = ['势力', '地点', '功法', '历史', '规则', '社会结构']
+
+  const categoryHints: Record<string, string> = {
+    '势力': '请包含：势力名称、势力规模、核心成员、势力目标、与其他势力关系',
+    '地点': '请包含：地点名称、地理特征、重要性、关联势力/人物',
+    '功法': '请包含：功法名称、修炼条件、威力等级、创始人、特殊效果',
+    '历史': '请包含：事件名称、时间背景、关键人物、影响',
+    '规则': '请包含：规则名称、适用范围、具体内容、例外情况',
+    '社会结构': '请包含：结构名称、阶层划分、运行机制、矛盾冲突',
+  }
+
   const generateNode = async () => {
+    setShowCategoryDialog(true)
+  }
+
+  const doGenerateNode = async (category: string) => {
+    setShowCategoryDialog(false)
     setGenLoading(true)
     try {
-      const configs = await pb.collection('ai_configs').getFullList({ filter: 'isDefault=true' })
-      const cfg = configs[0]
-      if (!cfg) {
-        alert('请先在设置中配置 AI')
-        setGenLoading(false)
-        return
-      }
-      const resp = await fetch(`${cfg.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${cfg.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: cfg.model,
-          messages: [{
-            role: 'user',
-            content: `Generate a world-building element for a fantasy novel. Return JSON: {"name":"...","category":"势力/地点/功法/历史","description":"..."}`,
-          }],
-          temperature: 0.9,
-        }),
-      })
-      const data = await resp.json()
-      const text = data.choices?.[0]?.message?.content || ''
-      // Parse JSON from response
+      const hint = categoryHints[category] || ''
+      const prompt = `请为小说《${currentWorkTitle || '未命名作品'}》生成一个世界观设定节点。
+分类：${category}
+${hint}
+返回JSON格式：{"name":"", "description":""}`
+      const text = await aiChat(prompt, 0.9)
       let json: any = {}
       try {
         json = JSON.parse(text.replace(/```json\n?/g, '').replace(/```/g, '').trim())
       } catch {
-        json = { name: text.slice(0, 50), category: '', description: text }
+        json = { name: text.slice(0, 50), category, description: text }
       }
       await pb.collection('world_nodes').create({
         name: json.name || '新节点',
         work: currentWorkId,
-        category: json.category || '',
+        category: category,
         description: json.description || '',
         parent: null,
       })
       fetchNodes()
-    } catch (err) {
+    } catch (err: any) {
       console.error(err)
-      alert('AI 生成失败')
+      alert(err.message || 'AI 生成失败')
     }
     setGenLoading(false)
   }
@@ -205,6 +205,38 @@ export default function WorldPage() {
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => { setShowAdd(false); setNewName('') }}>取消</Button>
               <Button onClick={addNode}>创建</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Category Selection Dialog */}
+      {showCategoryDialog && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-white border border-gray-200 rounded-xl p-6 w-full max-w-md shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">AI 生成世界观节点</h3>
+            <p className="text-sm text-gray-500 mb-4">选择要生成的节点分类</p>
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  className={`px-4 py-3 rounded-lg text-sm font-medium transition-all border ${
+                    selectedCategory === cat
+                      ? 'bg-primary-50 border-primary-300 text-primary-700'
+                      : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                  }`}
+                  onClick={() => setSelectedCategory(cat)}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => { setShowCategoryDialog(false); setSelectedCategory('') }}>取消</Button>
+              <Button onClick={() => doGenerateNode(selectedCategory)} disabled={!selectedCategory || genLoading}>
+                {genLoading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1" />}
+                生成
+              </Button>
             </div>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { pb } from '../lib/pb'
+import { aiChat } from '../lib/ai'
 import { useAppStore } from '../store/useAppStore'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -143,23 +144,6 @@ export default function CharactersPage() {
     }
   }
 
-  const getAIConfig = async () => {
-    const configs = await pb.collection('ai_configs').getFullList({ filter: 'isDefault = true' })
-    return configs[0] || (await pb.collection('ai_configs').getFullList())[0]
-  }
-
-  const callAI = async (prompt: string): Promise<string> => {
-    const config = await getAIConfig()
-    if (!config) throw new Error('请先在设置中配置 AI')
-    const res = await fetch(`${config.baseUrl}/v1/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.apiKey}` },
-      body: JSON.stringify({ model: config.model, messages: [{ role: 'user', content: prompt }], temperature: 0.8 }),
-    })
-    const data = await res.json()
-    return data.choices?.[0]?.message?.content || ''
-  }
-
   const parseAIJson = (reply: string): Record<string, any> | null => {
     try {
       const jsonMatch = reply.match(/\{[\s\S]*\}/)
@@ -195,7 +179,7 @@ export default function CharactersPage() {
 }
 要求只返回JSON，字段名用英文。${contextStr}`
 
-      const reply = await callAI(prompt)
+      const reply = await aiChat(prompt)
       const parsed = parseAIJson(reply)
       if (parsed) {
         setEditingChar(prev => ({ ...prev, ...parsed }))
@@ -234,7 +218,7 @@ export default function CharactersPage() {
 }
 要求只返回JSON，字段名用英文。${contextStr}`
 
-      const reply = await callAI(prompt)
+      const reply = await aiChat(prompt)
       const parsed = parseAIJson(reply)
       if (parsed) {
         setEditingChar(prev => ({ ...prev, ...parsed }))
@@ -255,7 +239,7 @@ export default function CharactersPage() {
 ${importText}
 
 返回格式：{"name":"", "gender":"男/女/其他", "age":0, "identity":"", "faction":"", "personality":"", "role":"主角/配角/反派/路人", "ability":"", "appearance":"", "background":"", "motivation":"", "arc":"", "debutChapter":"", "status":"存活/死亡/失踪"}`
-      const reply = await callAI(prompt)
+      const reply = await aiChat(prompt)
       const parsed = parseAIJson(reply)
       if (parsed) {
         setEditingChar({ ...emptyChar, ...parsed, work: currentWorkId || '' })

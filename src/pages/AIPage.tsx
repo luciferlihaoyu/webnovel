@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { pb } from '../lib/pb'
+import { aiChat } from '../lib/ai'
 import { useAppStore } from '../store/useAppStore'
 import { Button } from '../components/ui/button'
 import { Textarea } from '../components/ui/textarea'
@@ -34,24 +34,6 @@ export default function AIPage() {
   const [expandResult, setExpandResult] = useState('')
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
 
-  const getAIConfig = async () => {
-    const configs = await pb.collection('ai_configs').getFullList({ filter: 'isDefault=true' })
-    const cfg = configs[0] || (await pb.collection('ai_configs').getFullList())[0]
-    if (!cfg) throw new Error('请先在设置中配置 AI')
-    return cfg
-  }
-
-  const callAI = async (prompt: string): Promise<string> => {
-    const cfg = await getAIConfig()
-    const resp = await fetch(`${cfg.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.apiKey}` },
-      body: JSON.stringify({ model: cfg.model, messages: [{ role: 'user', content: prompt }], temperature: 0.8 }),
-    })
-    const data = await resp.json()
-    return data.choices?.[0]?.message?.content || '生成失败'
-  }
-
   const generateSection = async (key: keyof OutlineSections) => {
     setGeneratingSection(key)
     try {
@@ -61,7 +43,7 @@ export default function AIPage() {
         .map(d => `${d.label}：${sections[d.key]}`)
       const contextStr = contextParts.length ? `\n\n已确定的设定：\n${contextParts.join('\n')}` : ''
       const prompt = `请为小说《${currentWorkTitle}》生成${def.promptHint}。要求具体、有创意，直接输出内容，不要标题。${contextStr}`
-      const text = await callAI(prompt)
+      const text = await aiChat(prompt)
       setSections(prev => ({ ...prev, [key]: text }))
     } catch (err: any) {
       alert(err.message)
@@ -79,7 +61,7 @@ export default function AIPage() {
             .map(d => `${d.label}：${sections[d.key]}`)
           const contextStr = contextParts.length ? `\n\n已确定的设定：\n${contextParts.join('\n')}` : ''
           const prompt = `请为小说《${currentWorkTitle}》生成${def.promptHint}。要求具体、有创意，直接输出内容，不要标题。${contextStr}`
-          const text = await callAI(prompt)
+          const text = await aiChat(prompt)
           setSections(prev => ({ ...prev, [def.key]: text }))
         }
       }
@@ -98,7 +80,7 @@ export default function AIPage() {
         .map(d => `${d.label}：\n${sections[d.key]}`)
       const contextStr = filled.length ? `\n\n已有设定：\n${filled.join('\n\n')}` : ''
       const prompt = `请基于以下设定，为小说《${currentWorkTitle}》生成一份完整详细的小说大纲，包含各卷章节安排、剧情走向、伏笔设计等。${contextStr}\n\n请输出完整大纲。`
-      const text = await callAI(prompt)
+      const text = await aiChat(prompt)
       setResult(text)
     } catch (err: any) {
       setResult(`❌ ${err.message}`)
@@ -110,7 +92,7 @@ export default function AIPage() {
     setLoading(true)
     setExpandResult('')
     try {
-      const text = await callAI(`请将以下内容进行扩展和润色，保持原文风格，丰富细节：\n\n${expandText}`)
+      const text = await aiChat(`请将以下内容进行扩展和润色，保持原文风格，丰富细节：\n\n${expandText}`)
       setExpandResult(text)
     } catch (err: any) {
       setExpandResult(`❌ ${err.message}`)
