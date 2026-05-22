@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { pb } from '../lib/pb'
 import { aiChat } from '../lib/ai'
 import { useAppStore } from '../store/useAppStore'
@@ -31,7 +31,7 @@ export default function WorldPage() {
     }
   }
 
-  useState(() => { fetchNodes() })
+  useEffect(() => { fetchNodes() }, [])
 
   const toggleExpand = (id: string) => {
     setExpanded(prev => {
@@ -130,16 +130,16 @@ ${hint}
     return (
       <div key={node.id}>
         <div
-          className={`flex items-center gap-2 py-2 px-3 rounded-md cursor-pointer hover:bg-gray-800 transition-colors group`}
+          className={`flex items-center gap-2 py-2 px-3 rounded-md cursor-pointer hover:bg-gray-100 transition-colors group`}
           style={{ paddingLeft: `${12 + depth * 24}px` }}
         >
           <button onClick={() => hasKids && toggleExpand(node.id)} className="text-gray-500 w-4">
             {hasKids ? (isExpanded ? '▾' : '▸') : '·'}
           </button>
           <span>{catIcons[node.category] || '🌐'}</span>
-          <span className="text-gray-100 text-sm flex-1" onClick={() => toggleExpand(node.id)}>{node.name}</span>
+          <span className="text-gray-900 text-sm flex-1" onClick={() => toggleExpand(node.id)}>{node.name}</span>
           {node.category && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-violet-900/50 text-violet-300">{node.category}</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">{node.category}</span>
           )}
           {node.description && (
             <span className="text-xs text-gray-500 truncate max-w-[200px] hidden group-hover:inline">{node.description}</span>
@@ -162,7 +162,7 @@ ${hint}
     <div className="p-8 max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-xl font-bold text-gray-100">世界观</h2>
+          <h2 className="text-xl font-bold text-gray-900">世界观</h2>
           <p className="text-sm text-gray-400 mt-1">管理你的世界设定</p>
         </div>
         <div className="flex gap-2">
@@ -183,19 +183,19 @@ ${hint}
           <p className="text-sm">点击上方按钮添加或 AI 生成</p>
         </div>
       ) : (
-        <div className="bg-gray-900 rounded-lg border border-gray-800 p-2">
+        <div className="bg-white rounded-lg border border-gray-200 p-2">
           {roots.map((r: any) => renderNode(r, 0))}
         </div>
       )}
 
       {showAdd && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-gray-100 mb-4">
+          <div className="bg-white border border-gray-200 rounded-xl p-6 w-full max-w-md shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
               {parentId ? '添加子节点' : '新建节点'}
             </h3>
             <input
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-gray-100 text-sm mb-4"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-gray-900 text-sm mb-4"
               placeholder="节点名称"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}

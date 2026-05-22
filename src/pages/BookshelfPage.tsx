@@ -6,9 +6,10 @@ import { Input } from '../components/ui/input'
 import { Badge } from '../components/ui/badge'
 import { Dialog, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog'
 import WeeklyChart from '../components/WeeklyChart'
-import RightSidebar from '../components/RightSidebar'
 import {
-  Plus, Trash2, BookOpen, Search, Grid3X3, List, Cloud, CloudOff
+  Plus, Trash2, BookOpen, Search, Grid3X3, List, Cloud, CloudOff,
+  PenLine, Sparkles, Wand2, UserPlus, BarChart3, ChevronRight,
+  FileText, Eye, Globe, ShieldCheck
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 
@@ -35,17 +36,40 @@ interface BookshelfPageProps {
   onShowRightSidebar?: boolean
 }
 
+const quickEntries = [
+  { icon: PenLine, label: '继续写作', color: 'bg-blue-500', bg: 'bg-blue-50' },
+  { icon: Sparkles, label: '大纲生成', color: 'bg-purple-500', bg: 'bg-purple-50' },
+  { icon: BookOpen, label: '设定生成', color: 'bg-amber-500', bg: 'bg-amber-50' },
+  { icon: Wand2, label: '扩写', color: 'bg-green-500', bg: 'bg-green-50' },
+  { icon: UserPlus, label: '取名助手', color: 'bg-pink-500', bg: 'bg-pink-50' },
+  { icon: BarChart3, label: '数据统计', color: 'bg-cyan-500', bg: 'bg-cyan-50' },
+]
+
+const quickActionsRight = [
+  { icon: PenLine, label: '续写', color: 'text-blue-500 bg-blue-50' },
+  { icon: UserPlus, label: '取名', color: 'text-pink-500 bg-pink-50' },
+  { icon: Eye, label: '审核', color: 'text-amber-500 bg-amber-50' },
+  { icon: Globe, label: '世界观', color: 'text-purple-500 bg-purple-50' },
+]
+
 export default function BookshelfPage({ onShowRightSidebar = true }: BookshelfPageProps) {
   const [works, setWorks] = useState<Work[]>([])
-  const [showNewDialog, setShowNewDialog] = useState(false)
+  const { showNewWorkDialog, setShowNewWorkDialog } = useAppStore()
   const [newTitle, setNewTitle] = useState('')
   const [newGenres, setNewGenres] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<Work | null>(null)
   const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [recentEdits, setRecentEdits] = useState<RecentEdit[]>([])
   const { setWork, setPage } = useAppStore()
+
+  // Real stats from database
+  const [stats, setStats] = useState({
+    completedWorks: 0,
+    newWords: 0,
+    activeDays: 0,
+    aiAssists: 0,
+  })
 
   const fetchWorks = async () => {
     try {
@@ -78,7 +102,40 @@ export default function BookshelfPage({ onShowRightSidebar = true }: BookshelfPa
   useEffect(() => {
     fetchWorks()
     fetchRecentEdits()
+    fetchStats()
   }, [])
+
+  const fetchStats = async () => {
+    try {
+      // 已完成作品数
+      const allWorks = await pb.collection('works').getFullList<any>()
+      const completed = allWorks.filter((w: any) => (w.progress || 0) >= 100).length
+
+      // 本月新增字数
+      const now = new Date()
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+      const chapters = await pb.collection('chapters').getFullList<any>()
+      let totalNewWords = 0
+      const activeDaySet = new Set<string>()
+      chapters.forEach((ch: any) => {
+        if (!ch.updated) return
+        const d = new Date(ch.updated)
+        if (d >= monthStart) {
+          totalNewWords += ch.wordCount || 0
+          activeDaySet.add(d.toISOString().slice(0, 10))
+        }
+      })
+
+      setStats({
+        completedWorks: completed,
+        newWords: totalNewWords,
+        activeDays: activeDaySet.size,
+        aiAssists: 0, // TODO: 需要 AI 调用记录表
+      })
+    } catch (err) {
+      console.error('Failed to fetch stats:', err)
+    }
+  }
 
   const handleCreate = async () => {
     if (!newTitle.trim()) return
@@ -92,7 +149,7 @@ export default function BookshelfPage({ onShowRightSidebar = true }: BookshelfPa
       })
       setNewTitle('')
       setNewGenres('')
-      setShowNewDialog(false)
+      setShowNewWorkDialog(false)
       await fetchWorks()
     } catch (err) {
       console.error('Failed to create work:', err)
@@ -119,14 +176,14 @@ export default function BookshelfPage({ onShowRightSidebar = true }: BookshelfPa
 
   const getCoverGradient = (title: string) => {
     const gradients = [
-      'from-blue-600 via-blue-700 to-indigo-800',
-      'from-purple-600 via-violet-700 to-indigo-800',
-      'from-emerald-600 via-teal-700 to-cyan-800',
-      'from-rose-600 via-pink-700 to-red-800',
-      'from-amber-600 via-orange-700 to-red-800',
-      'from-cyan-600 via-blue-700 to-indigo-800',
-      'from-slate-700 via-slate-800 to-gray-900',
-      'from-stone-600 via-stone-700 to-neutral-800',
+      'from-blue-500 via-blue-600 to-indigo-700',
+      'from-purple-500 via-violet-600 to-indigo-700',
+      'from-emerald-500 via-teal-600 to-cyan-700',
+      'from-rose-500 via-pink-600 to-red-700',
+      'from-amber-500 via-orange-600 to-red-700',
+      'from-cyan-500 via-blue-600 to-indigo-700',
+      'from-slate-600 via-slate-700 to-gray-800',
+      'from-stone-500 via-stone-600 to-neutral-700',
     ]
     const idx = title.charCodeAt(0) % gradients.length
     return gradients[idx]
@@ -158,13 +215,12 @@ export default function BookshelfPage({ onShowRightSidebar = true }: BookshelfPa
   }
 
   const [weeklyData, setWeeklyData] = useState<{ day: string; words: number }[]>(
-    ['周一','周二','周三','周四','周五','周六','周日'].map(d => ({ day: d, words: 0 }))
+    ['周一', '周二', '周三', '周四', '周五', '周六', '周日'].map(d => ({ day: d, words: 0 }))
   )
   const [todayWords, setTodayWords] = useState(0)
   const [dailyTarget, setDailyTarget] = useState(5000)
 
   useEffect(() => {
-    // Compute real weekly data from all chapters
     pb.collection('chapters').getFullList<any>().then(chapters => {
       const now = new Date()
       const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1
@@ -185,77 +241,96 @@ export default function BookshelfPage({ onShowRightSidebar = true }: BookshelfPa
         if (d.getTime() >= todayStart.getTime()) today += c.wordCount
       })
 
-      const days = ['周一','周二','周三','周四','周五','周六','周日']
+      const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
       setWeeklyData(days.map((d, i) => ({ day: d, words: week[i] })))
       setTodayWords(today)
-    }).catch(() => {})
+    }).catch(() => { })
   }, [works])
 
   const filteredWorks = searchQuery
     ? works.filter(w => w.title.toLowerCase().includes(searchQuery.toLowerCase()))
     : works
 
+  const dotColors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-amber-500', 'bg-pink-500']
+
   return (
     <div className="flex h-full">
+      {/* Main Content */}
       <div className="flex-1 overflow-auto">
-        <div className="p-6 max-w-5xl">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">书架</h2>
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  className="pl-9 w-56"
-                  placeholder="搜索作品..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-              <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+        <div className="p-6 max-w-[1100px] mx-auto">
+
+          {/* Quick Entry Grid */}
+          <section className="mb-8">
+            <div className="grid grid-cols-6 gap-3">
+              {quickEntries.map((entry) => (
                 <button
-                  onClick={() => setViewMode('grid')}
-                  className={cn('p-1.5 rounded-md transition-colors', viewMode === 'grid' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-400 hover:text-gray-600')}
+                  key={entry.label}
+                  onClick={() => {
+                    if (entry.label === '数据统计') setPage('stats')
+                    else if (entry.label === '大纲生成') setPage('ai')
+                    else if (entry.label === '取名助手') setPage('characters')
+                    else if (entry.label === '继续写作') setPage('editor')
+                    else if (entry.label === '设定生成') setPage('ai')
+                    else if (entry.label === '扩写') setPage('editor')
+                  }}
+                  className="flex flex-col items-center gap-2 p-4 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all cursor-pointer"
                 >
-                  <Grid3X3 className="w-4 h-4" />
+                  <div className={cn('w-11 h-11 rounded-xl flex items-center justify-center', entry.bg)}>
+                    <entry.icon className={cn('w-5 h-5', entry.color.replace('bg-', 'text-'))} />
+                  </div>
+                  <span className="text-xs text-slate-700 font-medium">{entry.label}</span>
                 </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={cn('p-1.5 rounded-md transition-colors', viewMode === 'list' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-400 hover:text-gray-600')}
-                >
-                  <List className="w-4 h-4" />
-                </button>
-              </div>
+              ))}
             </div>
-          </div>
+          </section>
 
           {/* My Works Section */}
           <section className="mb-8">
-            <h3 className="text-base font-semibold text-gray-900 mb-4">我的作品</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold text-slate-800">我的作品</h3>
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    className="pl-9 w-48 h-8 text-sm bg-slate-50 border-slate-200"
+                    placeholder="搜索作品..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
             {filteredWorks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-                <BookOpen className="w-16 h-16 mb-4 opacity-30" />
-                <p className="text-lg text-gray-500">还没有作品</p>
-                <p className="text-sm mt-1">点击"新建作品"开始创作</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div
+                  className="border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center h-[280px] cursor-pointer hover:border-primary-300 hover:bg-primary-50/30 transition-all"
+                  onClick={() => setShowNewWorkDialog(true)}
+                >
+                  <div className="w-12 h-12 rounded-full bg-primary-50 flex items-center justify-center mb-3">
+                    <Plus className="w-6 h-6 text-primary-500" />
+                  </div>
+                  <span className="text-sm text-slate-500">新建作品</span>
+                </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {filteredWorks.map((work) => (
                   <div
                     key={work.id}
-                    className="group relative bg-white border border-gray-200 rounded-xl overflow-hidden hover:border-gray-300 hover:shadow-md transition-all cursor-pointer"
+                    className="group relative bg-white border border-slate-200 rounded-xl overflow-hidden hover:border-slate-300 hover:shadow-md transition-all cursor-pointer shadow-sm"
                     onClick={() => handleOpenWork(work)}
                   >
-                    {/* Cover with gradient and vertical title */}
-                    <div className={cn('h-36 bg-gradient-to-br relative overflow-hidden', getCoverGradient(work.title))}>
-                      <div className="absolute inset-0 flex items-center justify-end pr-4">
-                        <span className="text-white/70 font-bold text-lg vertical-text select-none tracking-widest" style={{ writingMode: 'vertical-rl' }}>
+                    {/* Cover with 3:4 aspect ratio */}
+                    <div className={cn('aspect-[3/4] bg-gradient-to-br relative overflow-hidden', getCoverGradient(work.title))}>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-white/80 font-bold text-xl select-none" style={{ writingMode: 'vertical-rl', letterSpacing: '0.15em' }}>
                           {work.title}
                         </span>
                       </div>
-                      {/* Decorative circles */}
-                      <div className="absolute -bottom-6 -left-6 w-24 h-24 rounded-full bg-white/10" />
-                      <div className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/5" />
+                      {/* Decorative elements */}
+                      <div className="absolute -bottom-8 -left-8 w-28 h-28 rounded-full bg-white/10" />
+                      <div className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/5" />
                     </div>
                     {/* Delete button */}
                     <button
@@ -265,8 +340,8 @@ export default function BookshelfPage({ onShowRightSidebar = true }: BookshelfPa
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                     {/* Info */}
-                    <div className="p-4">
-                      <h4 className="font-semibold text-gray-900 truncate mb-2">{work.title}</h4>
+                    <div className="p-3">
+                      <h4 className="font-semibold text-sm text-slate-800 truncate mb-1.5">{work.title}</h4>
                       {work.genres && (
                         <div className="flex flex-wrap gap-1 mb-2">
                           {parseGenres(work.genres).map((genre, i) => (
@@ -274,11 +349,11 @@ export default function BookshelfPage({ onShowRightSidebar = true }: BookshelfPa
                           ))}
                         </div>
                       )}
-                      <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                      <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5">
                         <span>{work.totalWords?.toLocaleString() || 0} 字</span>
-                        <span>{work.progress || 0}%</span>
+                        <span className="font-medium">{work.progress || 0}%</span>
                       </div>
-                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                         <div
                           className={cn('h-full rounded-full transition-all', getProgressColor(work.progress || 0))}
                           style={{ width: `${Math.min(work.progress || 0, 100)}%` }}
@@ -289,96 +364,129 @@ export default function BookshelfPage({ onShowRightSidebar = true }: BookshelfPa
                 ))}
                 {/* Add new work placeholder card */}
                 <div
-                  className="border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center h-[240px] cursor-pointer hover:border-primary-300 hover:bg-blue-50/30 transition-all"
-                  onClick={() => setShowNewDialog(true)}
+                  className="border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center aspect-[3/4] cursor-pointer hover:border-primary-300 hover:bg-primary-50/30 transition-all"
+                  onClick={() => setShowNewWorkDialog(true)}
                 >
-                  <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mb-3">
+                  <div className="w-12 h-12 rounded-full bg-primary-50 flex items-center justify-center mb-3">
                     <Plus className="w-6 h-6 text-primary-500" />
                   </div>
-                  <span className="text-sm text-gray-500">新建作品</span>
+                  <span className="text-sm text-slate-500">新建作品</span>
                 </div>
               </div>
             )}
           </section>
 
           {/* Recently Edited Section */}
-          {recentEdits.length > 0 && (
-            <section className="mb-8">
-              <h3 className="text-base font-semibold text-gray-900 mb-4">最近编辑</h3>
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <section className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold text-slate-800">最近编辑</h3>
+              <button className="text-xs text-primary-500 hover:text-primary-600 font-medium flex items-center gap-0.5">
+                查看全部 <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            {recentEdits.length > 0 ? (
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                 {recentEdits.map((edit, i) => (
                   <div
                     key={i}
                     className={cn(
-                      'flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors cursor-pointer',
-                      i < recentEdits.length - 1 && 'border-b border-gray-100'
+                      'flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 transition-colors cursor-pointer',
+                      i < recentEdits.length - 1 && 'border-b border-slate-100'
                     )}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
-                        <BookOpen className="w-4 h-4 text-white" />
-                      </div>
+                      <div className={cn('w-2.5 h-2.5 rounded-full flex-shrink-0', dotColors[i % dotColors.length])} />
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">
+                        <p className="text-sm font-medium text-slate-700 truncate">
                           {edit.workTitle} · {edit.chapterTitle || '未命名章节'}
                         </p>
-                        <p className="text-xs text-gray-400 mt-0.5">
+                        <p className="text-xs text-slate-400 mt-0.5">
                           {edit.wordCount.toLocaleString()} 字
                         </p>
                       </div>
                     </div>
-                    <span className="text-xs text-gray-400 flex-shrink-0 ml-4">{formatTime(edit.time)}</span>
+                    <span className="text-xs text-slate-400 flex-shrink-0 ml-4">{formatTime(edit.time)}</span>
                   </div>
                 ))}
               </div>
-            </section>
-          )}
-
-          {/* Weekly Stats Section */}
-          <section className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-gray-900">数据统计（本周）</h3>
-              <button
-                onClick={() => setPage('stats')}
-                className="text-xs text-primary-500 hover:text-primary-600 font-medium"
-              >
-                查看详情 →
-              </button>
-            </div>
-            <div className="bg-white border border-gray-200 rounded-xl p-5">
-              <WeeklyChart data={weeklyData} />
-            </div>
+            ) : (
+              <div className="bg-white border border-slate-200 rounded-xl p-8 text-center shadow-sm">
+                <FileText className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                <p className="text-sm text-slate-400">暂无编辑记录</p>
+              </div>
+            )}
           </section>
-
-          {/* WebDAV Sync Status */}
-          <div className="flex items-center justify-between bg-white border border-gray-200 rounded-xl px-5 py-3 mb-6">
-            <div className="flex items-center gap-2">
-              <Cloud className="w-4 h-4 text-green-500" />
-              <span className="text-sm text-gray-600">WebDAV 同步</span>
-              <span className="text-xs text-green-600 font-medium">已同步 · 2分钟前</span>
-            </div>
-            <span className="text-xs text-gray-400">自动同步已开启</span>
-          </div>
         </div>
       </div>
 
       {/* Right Sidebar */}
       {onShowRightSidebar && (
-        <RightSidebar
-          showQuickActions={true}
-          showCharacters={false}
-          showWorldTree={false}
-        />
+        <aside className="w-[280px] flex-shrink-0 border-l border-slate-200 bg-white overflow-y-auto">
+          <div className="p-4 space-y-5">
+            {/* 本月统计 */}
+            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+              <h4 className="text-sm font-semibold text-slate-800 mb-4">本月统计</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="text-center p-3 bg-slate-50 rounded-lg">
+                  <p className="text-2xl font-bold text-primary-600">{stats.completedWorks}</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">已完成作品</p>
+                </div>
+                <div className="text-center p-3 bg-slate-50 rounded-lg">
+                  <p className="text-2xl font-bold text-green-600">{stats.newWords.toLocaleString()}</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">新增字数</p>
+                </div>
+                <div className="text-center p-3 bg-slate-50 rounded-lg">
+                  <p className="text-2xl font-bold text-amber-600">{stats.activeDays}/{new Date().getDate()}</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">活跃天数</p>
+                </div>
+                <div className="text-center p-3 bg-slate-50 rounded-lg">
+                  <p className="text-2xl font-bold text-purple-600">{stats.aiAssists}</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">AI辅助</p>
+                </div>
+              </div>
+            </div>
+
+            {/* 本周写作 Chart */}
+            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+              <h4 className="text-sm font-semibold text-slate-800 mb-3">本周写作</h4>
+              <WeeklyChart data={weeklyData} />
+            </div>
+
+            {/* 快捷操作 */}
+            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+              <h4 className="text-sm font-semibold text-slate-800 mb-3">快捷操作</h4>
+              <div className="grid grid-cols-2 gap-2">
+                {quickActionsRight.map((action) => (
+                  <button
+                    key={action.label}
+                    onClick={() => {
+                    if (action.label === '取名') setPage('characters')
+                    else if (action.label === '续写') setPage('editor')
+                    else if (action.label === '审核') setPage('editor')
+                    else if (action.label === '世界观') setPage('ai')
+                    }}
+                    className="flex items-center gap-2 p-2.5 rounded-lg hover:bg-slate-50 transition-colors border border-slate-100"
+                  >
+                    <div className={cn('p-1.5 rounded-lg', action.color)}>
+                      <action.icon className="w-4 h-4" />
+                    </div>
+                    <span className="text-xs text-slate-600 font-medium">{action.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </aside>
       )}
 
       {/* New Work Dialog */}
-      <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
+      <Dialog open={showNewWorkDialog} onOpenChange={setShowNewWorkDialog}>
         <DialogHeader>
           <DialogTitle>新建作品</DialogTitle>
         </DialogHeader>
         <div className="py-4 space-y-4">
           <div>
-            <label className="block text-sm text-gray-700 mb-1.5">作品名称</label>
+            <label className="block text-sm text-slate-700 mb-1.5">作品名称</label>
             <Input
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
@@ -386,7 +494,7 @@ export default function BookshelfPage({ onShowRightSidebar = true }: BookshelfPa
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-700 mb-1.5">分类标签（用逗号分隔）</label>
+            <label className="block text-sm text-slate-700 mb-1.5">分类标签（用逗号分隔）</label>
             <Input
               value={newGenres}
               onChange={(e) => setNewGenres(e.target.value)}
@@ -395,7 +503,7 @@ export default function BookshelfPage({ onShowRightSidebar = true }: BookshelfPa
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setShowNewDialog(false)}>取消</Button>
+          <Button variant="outline" onClick={() => setShowNewWorkDialog(false)}>取消</Button>
           <Button onClick={handleCreate} disabled={loading || !newTitle.trim()}>
             {loading ? '创建中...' : '创建'}
           </Button>
@@ -408,7 +516,7 @@ export default function BookshelfPage({ onShowRightSidebar = true }: BookshelfPa
           <DialogTitle>确认删除</DialogTitle>
         </DialogHeader>
         <div className="py-4">
-          <p className="text-gray-600">确定要删除作品「{deleteTarget?.title}」吗？此操作不可撤销。</p>
+          <p className="text-slate-600">确定要删除作品「{deleteTarget?.title}」吗？此操作不可撤销。</p>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setDeleteTarget(null)}>取消</Button>

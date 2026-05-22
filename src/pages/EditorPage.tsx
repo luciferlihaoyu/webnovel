@@ -64,6 +64,10 @@ export default function EditorPage({ onShowRightSidebar = true }: EditorPageProp
   const [nameResult, setNameResult] = useState('')
   const [nameLoading, setNameLoading] = useState(false)
 
+  // Real data for RightSidebar
+  const [sidebarCharacters, setSidebarCharacters] = useState<any[]>([])
+  const [sidebarWorldTree, setSidebarWorldTree] = useState<any[]>([])
+
   useEffect(() => {
     const handleOnline = () => setIsOnline(true)
     const handleOffline = () => setIsOnline(false)
@@ -101,6 +105,31 @@ export default function EditorPage({ onShowRightSidebar = true }: EditorPageProp
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  // Fetch real characters and world nodes for RightSidebar
+  useEffect(() => {
+    if (!currentWorkId) return
+    const fetchSidebarData = async () => {
+      try {
+        const [chars, nodes] = await Promise.all([
+          pb.collection('characters').getFullList<any>({ filter: `work = "${currentWorkId}"`, sort: '-created' }),
+          pb.collection('world_nodes').getFullList<any>({ filter: `work = "${currentWorkId}"` }),
+        ])
+        setSidebarCharacters(chars)
+
+        // Build tree structure from flat nodes
+        const roots = nodes.filter((n: any) => !n.parent)
+        const buildTree = (parentId: string | null): any[] =>
+          nodes
+            .filter((n: any) => n.parent === parentId)
+            .map((n: any) => ({ id: n.id, name: n.name, children: buildTree(n.id) }))
+        setSidebarWorldTree(roots.map((r: any) => ({ id: r.id, name: r.name, children: buildTree(r.id) })))
+      } catch (err) {
+        console.error('Failed to fetch sidebar data:', err)
+      }
+    }
+    fetchSidebarData()
+  }, [currentWorkId])
 
   const wordCount = (text: string) => {
     if (!text) return 0
@@ -470,70 +499,8 @@ export default function EditorPage({ onShowRightSidebar = true }: EditorPageProp
           showQuickActions={true}
           showCharacters={true}
           showWorldTree={true}
-          characters={[
-            {
-              id: '1',
-              name: '主角名',
-              role: '主角',
-              gender: '男',
-              age: 18,
-              identity: '修真者',
-              faction: '青云门',
-              personality: '坚韧不拔，重情重义',
-            },
-            {
-              id: '2',
-              name: '女主名',
-              role: '主角',
-              gender: '女',
-              age: 17,
-              identity: '天族后裔',
-              faction: '天族',
-              personality: '活泼开朗',
-            },
-            {
-              id: '3',
-              name: '师父',
-              role: '导师',
-              gender: '男',
-              age: 200,
-              identity: '青云掌门',
-              faction: '青云门',
-              personality: '严厉但关爱弟子',
-            },
-            {
-              id: '4',
-              name: '反派BOSS',
-              role: '反派',
-              gender: '男',
-              age: 500,
-              identity: '魔尊',
-              faction: '魔教',
-              personality: '阴险狡诈',
-            },
-          ]}
-          worldTree={[
-            {
-              id: 'w1',
-              name: '宇宙设定',
-              children: [
-                {
-                  id: 'w2', name: '星系',
-                  children: [
-                    { id: 'w3', name: '太阳系' },
-                    { id: 'w4', name: '地球' },
-                  ]
-                },
-                {
-                  id: 'w5', name: '时间维度',
-                  children: [
-                    { id: 'w6', name: '纪元' },
-                    { id: 'w7', name: '时间线' },
-                  ]
-                },
-              ]
-            }
-          ]}
+          characters={sidebarCharacters}
+          worldTree={sidebarWorldTree}
         />
       )}
 

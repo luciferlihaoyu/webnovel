@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { cn } from '../lib/utils'
 import {
@@ -49,7 +49,14 @@ export default function RightSidebar({
   worldTree = [],
 }: RightSidebarProps) {
   const { setPage } = useAppStore()
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['宇宙设定']))
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
+
+  // Auto-expand first root node on mount
+  useEffect(() => {
+    if (worldTree.length > 0 && worldTree[0].name) {
+      setExpandedNodes(new Set([worldTree[0].name]))
+    }
+  }, [worldTree])
 
   const toggleNode = (name: string) => {
     setExpandedNodes((prev) => {

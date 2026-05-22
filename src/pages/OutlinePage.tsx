@@ -70,16 +70,16 @@ ${synopsis ? `故事简介：${synopsis}` : ''}
   return (
     <div className="p-8 max-w-3xl mx-auto">
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-100">大纲生成</h2>
-        <p className="text-sm text-gray-400 mt-1">AI 辅助生成小说大纲</p>
+        <h2 className="text-xl font-bold text-gray-900">大纲生成</h2>
+        <p className="text-sm text-gray-500 mt-1">AI 辅助生成小说大纲</p>
       </div>
 
       {/* Book Info */}
-      <Card className="bg-gray-900 border-gray-800 mb-6">
+      <Card className="bg-white border-gray-200 mb-6">
         <CardContent className="p-4 flex items-center gap-3">
-          <BookOpen className="w-5 h-5 text-violet-400" />
+          <BookOpen className="w-5 h-5 text-violet-500" />
           <div>
-            <p className="text-gray-100 font-medium">{currentWorkTitle}</p>
+            <p className="text-gray-900 font-medium">{currentWorkTitle}</p>
             <p className="text-xs text-gray-500">将基于此作品生成大纲</p>
           </div>
         </CardContent>
@@ -87,13 +87,13 @@ ${synopsis ? `故事简介：${synopsis}` : ''}
 
       {/* Synopsis Input */}
       <div className="mb-4">
-        <label className="text-sm text-gray-300 mb-2 block">故事简介（可选）</label>
+        <label className="text-sm text-gray-700 mb-2 block">故事简介（可选）</label>
         <Textarea
           placeholder="输入一句话简介或核心创意，帮助 AI 理解你的故事方向..."
           value={synopsis}
           onChange={(e) => setSynopsis(e.target.value)}
           rows={3}
-          className="bg-gray-900 border-gray-700 text-gray-100"
+          className="bg-white border-gray-200 text-gray-900"
         />
       </div>
 
@@ -112,29 +112,29 @@ ${synopsis ? `故事简介：${synopsis}` : ''}
       {loading && (
         <div className="text-center py-12">
           <div className="animate-pulse flex flex-col items-center gap-4">
-            <Sparkles className="w-8 h-8 text-violet-400" />
-            <p className="text-gray-400">AI 正在构思中，请稍候...</p>
+            <Sparkles className="w-8 h-8 text-violet-500" />
+            <p className="text-gray-500">AI 正在构思中，请稍候...</p>
           </div>
         </div>
       )}
 
       {/* Result */}
       {result && !loading && (
-        <Card className="bg-gray-900 border-gray-800">
+        <Card className="bg-white border-gray-200">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-violet-400">📋 生成结果</h3>
+              <h3 className="text-sm font-semibold text-violet-600">📋 生成结果</h3>
               <Button variant="outline" size="sm" onClick={copyResult}>
                 {copied ? <Check className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
                 {copied ? '已复制' : '复制'}
               </Button>
             </div>
-            <div className="prose prose-invert prose-sm max-w-none">
-              <div className="text-gray-200 whitespace-pre-wrap leading-relaxed text-sm">
+            <div className="prose prose-sm max-w-none">
+              <div className="text-gray-700 whitespace-pre-wrap leading-relaxed text-sm">
                 {result}
               </div>
             </div>
-            <div className="mt-4 p-3 bg-amber-900/30 border border-amber-800/50 rounded-lg text-xs text-amber-200/80">
+            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
               💡 提示：生成结果可选中复制，粘贴到写作页作为参考。不满意可以修改简介后重新生成。
             </div>
           </CardContent>
