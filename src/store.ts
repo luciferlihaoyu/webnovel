@@ -1,17 +1,1 @@
-import { create } from 'zustand';
-
-export type Page = 'bookshelf' | 'editor' | 'characters' | 'world' | 'outline' | 'settings';
-
-interface AppState {
-  currentPage: Page;
-  currentWorkId: number | null;
-  setPage: (page: Page) => void;
-  setWorkId: (id: number | null) => void;
-}
-
-export const useAppStore = create<AppState>((set) => ({
-  currentPage: 'bookshelf',
-  currentWorkId: null,
-  setPage: (page) => set({ currentPage: page }),
-  setWorkId: (id) => set({ currentWorkId: id }),
-}));
+aW1wb3J0IHsgY3JlYXRlIH0gZnJvbSAnenVzdGFuZCc7CgpleHBvcnQgdHlwZSBQYWdlID0gJ2Jvb2tzaGVsZicgfCAnZWRpdG9yJyB8ICdjaGFyYWN0ZXJzJyB8ICd3b3JsZCcgfCAnb3V0bGluZScgfCAnc2V0dGluZ3MnOwoKaW50ZXJmYWNlIEFwcFN0YXRlIHsKICBjdXJyZW50UGFnZTogUGFnZTsKICBjdXJyZW50V29ya0lkOiBudW1iZXIgfCBudWxsOwogIHNldFBhZ2U6IChwYWdlOiBQYWdlKSA9PiB2b2lkOwogIHNldFdvcmtJZDogKGlkOiBudW1iZXIgfCBudWxsKSA9PiB2b2lkOwp9CgpleHBvcnQgY29uc3QgdXNlQXBwU3RvcmUgPSBjcmVhdGU8QXBwU3RhdGU+KChzZXQpID0+ICh7CiAgY3VycmVudFBhZ2U6ICdib29rc2hlbGYnLAogIGN1cnJlbnRXb3JrSWQ6IG51bGwsCiAgc2V0UGFnZTogKHBhZ2UpID0+IHNldCh7IGN1cnJlbnRQYWdlOiBwYWdlIH0pLAogIHNldFdvcmtJZDogKGlkKSA9PiBzZXQoeyBjdXJyZW50V29ya0lkOiBpZCB9KSwKfSkpOwo=
